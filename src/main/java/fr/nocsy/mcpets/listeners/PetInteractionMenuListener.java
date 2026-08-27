@@ -64,6 +64,10 @@ public class PetInteractionMenuListener implements Listener {
     }
 
     public static void revoke(final Player p, @NotNull final Pet pet) {
+        if (p != null && !ServerTasks.isOwned(p)) {
+            ServerTasks.runOn(p, () -> revoke(p, pet));
+            return;
+        }
         pet.despawn(PetDespawnReason.REVOKE);
         Language.REVOKED.sendMessage(p);
     }

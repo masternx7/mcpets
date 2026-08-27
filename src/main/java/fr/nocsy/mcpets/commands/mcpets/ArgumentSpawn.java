@@ -5,6 +5,7 @@ import fr.nocsy.mcpets.commands.AArgument;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.config.FormatArg;
 import fr.nocsy.mcpets.data.config.Language;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -46,9 +47,11 @@ public class ArgumentSpawn extends AArgument {
             return;
         }
         pet.setCheckPermission(checkPermission);
-        if (silent)
-            pet.spawn(target, target.getLocation());
-        else
-            pet.spawnWithMessage(target);
+        ServerTasks.runOn(target, () -> {
+            if (silent)
+                pet.spawn(target, target.getLocation());
+            else
+                pet.spawnWithMessage(target);
+        });
     }
 }

@@ -568,6 +568,13 @@ public class Pet {
      * Spawn the pet if possible. Return values are indicated in this class.
      */
     public int spawn(final Location loc, final boolean bruise) {
+        // Folia: reading blocks / spawning must happen on the destination region.
+        // Skript (and console) may dispatch this from the global scheduler.
+        if (loc != null && loc.getWorld() != null && !ServerTasks.isOwned(loc)) {
+            ServerTasks.runAt(loc, () -> spawn(loc, bruise));
+            return MOB_SPAWN;
+        }
+
         Debugger.send("§aSpawning pet " + id + "...");
         // if the pet has no pet stats, then we try to set one
         if (petStats == null) {
@@ -788,6 +795,10 @@ public class Pet {
      * Spawn the pet and send the corresponding message on execution
      */
     public void spawnWithMessage(final Player p) {
+        if (p != null && !ServerTasks.isOwned(p)) {
+            ServerTasks.runOn(p, () -> spawnWithMessage(p));
+            return;
+        }
         final int executed = this.spawn(p, p.getLocation());
         if (isStillHere())
             switch (executed) {
@@ -1070,9 +1081,29 @@ public class Pet {
     }
 
     /**
+     * Bukkit entity of the active pet, or null. Safe to call off-region:
+     * it only returns the wrapper, it does not touch world state.
+     */
+    private Entity resolveBukkitEntity() {
+        try {
+            if (activeMob == null || activeMob.getEntity() == null) {
+                return null;
+            }
+            return activeMob.getEntity().getBukkitEntity();
+        } catch (final Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
      * Despawn the pet
      */
     public boolean despawn(final PetDespawnReason reason) {
+        final Entity petEntity = resolveBukkitEntity();
+        if (petEntity != null && !ServerTasks.isOwned(petEntity)) {
+            ServerTasks.runOn(petEntity, () -> despawn(reason));
+            return true;
+        }
 
         final PetDespawnEvent event = new PetDespawnEvent(this, reason);
         Utils.callEvent(event);
@@ -1204,6 +1235,10 @@ public class Pet {
      * Teleport the pet to the player
      */
     public void teleportToPlayer(final Player p) {
+        if (p != null && !ServerTasks.isOwned(p)) {
+            ServerTasks.runOn(p, () -> teleportToPlayer(p));
+            return;
+        }
         final Location loc = Utils.bruised(p.getLocation(), Math.min(getSpawnRange(), getDistance()));
         Debugger.send("§7teleporting pet " + id + " to player " + p.getName());
         if (isStillHere())

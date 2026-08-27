@@ -208,75 +208,82 @@ public class PetListener implements Listener {
         UUID uuid = p.getUniqueId();
 
         ServerTasks.runOnLater(p, () -> {
-            if (GlobalConfig.getInstance().isDatabaseSupport()) {
-                PlayerData.reloadAll(uuid);
-            }
-
-            if (GlobalConfig.getInstance().isVelocityEnabled()
-                    && GlobalConfig.getInstance().isDatabaseSupport()) {
-
-                // When Velocity is enabled the DB is the ONLY source of truth.
-                boolean isLiveSwitch = VelocitySyncManager.isPlayerSwitching(uuid);
+            final boolean velocity = GlobalConfig.getInstance().isVelocityEnabled()
+                    && GlobalConfig.getInstance().isDatabaseSupport();
+            final boolean isLiveSwitch = velocity && VelocitySyncManager.isPlayerSwitching(uuid);
+            if (velocity) {
                 VelocitySyncManager.clearSwitchingPlayer(uuid);
-                reconnectionPets.remove(uuid); // discard — DB owns the state
-
-                // Load from DB asynchronously to avoid blocking the main thread
-                ServerTasks.runAsync(() -> {
-                    Databases.ActivePetRecord record = Databases.loadActivePet(uuid);
-                    if (record == null) return;
-                    if (isLiveSwitch) {
-                        Databases.clearActivePet(uuid);
-                    }
-                    // Return to the player's region to spawn pets (skin restoration uses static maps)
-                    ServerTasks.runOn(p, () -> {
-                        if (!p.isOnline()) return;
-                        for (String petId : record.getPetIds()) {
-                            Pet template = Pet.getFromId(petId);
-                            if (template == null) continue;
-                            Pet velocityPet = template.copy();
-                            velocityPet.setCheckPermission(false);
-                            velocityPet.setOwner(uuid);
-                            // Restore active skin if one was saved
-                            restoreSkin(p, velocityPet, record.getSkinId(petId));
-                            velocityPet.spawn(p.getLocation(), true);
-                        }
-                    });
-                });
-                return; // never fall through to reconnectionPets when Velocity is enabled
-            }
-
-            // Velocity disabled: use the local reconnection map (original behavior).
-            if (reconnectionPets.containsKey(uuid)) {
-                String stored = reconnectionPets.get(uuid);
-                Pet pet = Pet.getFromId(PlayerData.decodeActivePetId(stored));
-                if (pet == null) return;
-
-                if (!p.hasPermission(pet.getPermission())) {
-                    reconnectionPets.remove(uuid);
-                    return;
-                }
-                pet = pet.copy();
-                pet.setCheckPermission(false);
-                pet.setOwner(uuid);
-                restoreSkin(p, pet, PlayerData.decodeActiveSkinId(stored));
-                pet.spawn(p.getLocation(), true);
                 reconnectionPets.remove(uuid);
-            } else if (GlobalConfig.getInstance().isSpawnPetAfterServerRestart()) {
-                PlayerData pd = PlayerData.get(uuid);
-                String stored = pd.getLastActivePet();
-                String lastPetId = PlayerData.decodeActivePetId(stored);
-                if (lastPetId != null && !lastPetId.isEmpty()) {
-                    Pet pet = Pet.getFromId(lastPetId);
-                    if (pet != null) {
-                        pet = pet.copy();
-                        pet.setCheckPermission(false);
-                        pet.setOwner(uuid);
-                        restoreSkin(p, pet, PlayerData.decodeActiveSkinId(stored));
-                        pet.spawn(p.getLocation(), true);
+            }
+
+            if (GlobalConfig.getInstance().isDatabaseSupport()) {
+                // JDBC must not run on the player's region thread, and queries
+                // must not overlap on the shared connection.
+                ServerTasks.runAsync(() -> {
+                    PlayerData.reloadAll(uuid);
+                    if (velocity) {
+                        Databases.ActivePetRecord record = Databases.loadActivePet(uuid);
+                        if (record != null && isLiveSwitch) {
+                            Databases.clearActivePet(uuid);
+                        }
+                        final Databases.ActivePetRecord snapshot = record;
+                        ServerTasks.runOn(p, () -> restorePetsFromRecord(p, uuid, snapshot));
+                        return;
                     }
+                    ServerTasks.runOn(p, () -> restorePetsLocally(p, uuid));
+                });
+                return;
+            }
+
+            restorePetsLocally(p, uuid);
+        }, 20L);
+    }
+
+    private void restorePetsFromRecord(Player p, UUID uuid, Databases.ActivePetRecord record) {
+        if (!p.isOnline() || record == null) return;
+        for (String petId : record.getPetIds()) {
+            Pet template = Pet.getFromId(petId);
+            if (template == null) continue;
+            Pet velocityPet = template.copy();
+            velocityPet.setCheckPermission(false);
+            velocityPet.setOwner(uuid);
+            restoreSkin(p, velocityPet, record.getSkinId(petId));
+            velocityPet.spawn(p.getLocation(), true);
+        }
+    }
+
+    private void restorePetsLocally(Player p, UUID uuid) {
+        if (!p.isOnline()) return;
+        if (reconnectionPets.containsKey(uuid)) {
+            String stored = reconnectionPets.get(uuid);
+            Pet pet = Pet.getFromId(PlayerData.decodeActivePetId(stored));
+            if (pet == null) return;
+
+            if (!p.hasPermission(pet.getPermission())) {
+                reconnectionPets.remove(uuid);
+                return;
+            }
+            pet = pet.copy();
+            pet.setCheckPermission(false);
+            pet.setOwner(uuid);
+            restoreSkin(p, pet, PlayerData.decodeActiveSkinId(stored));
+            pet.spawn(p.getLocation(), true);
+            reconnectionPets.remove(uuid);
+        } else if (GlobalConfig.getInstance().isSpawnPetAfterServerRestart()) {
+            PlayerData pd = PlayerData.get(uuid);
+            String stored = pd.getLastActivePet();
+            String lastPetId = PlayerData.decodeActivePetId(stored);
+            if (lastPetId != null && !lastPetId.isEmpty()) {
+                Pet pet = Pet.getFromId(lastPetId);
+                if (pet != null) {
+                    pet = pet.copy();
+                    pet.setCheckPermission(false);
+                    pet.setOwner(uuid);
+                    restoreSkin(p, pet, PlayerData.decodeActiveSkinId(stored));
+                    pet.spawn(p.getLocation(), true);
                 }
             }
-        }, 20L);
+        }
     }
 
     private void restoreSkin(Player p, Pet pet, String skinPathId) {

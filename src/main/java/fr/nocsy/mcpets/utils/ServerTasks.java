@@ -55,14 +55,16 @@ public final class ServerTasks {
     }
 
     public static void runOn(final Entity entity, final Runnable run) {
-        if (entity == null || !entity.isValid()) {
+        if (entity == null) {
             return;
         }
+        // Do not call entity.isValid() here: on Folia that can itself fail
+        // the region thread check when invoked from the global scheduler.
         entity.getScheduler().run(plugin(), task -> run.run(), null);
     }
 
     public static ScheduledTask runOnLater(final Entity entity, final Runnable run, final long delayTicks) {
-        if (entity == null || !entity.isValid()) {
+        if (entity == null) {
             return null;
         }
         return entity.getScheduler().runDelayed(plugin(), task -> run.run(), null, Math.max(1L, delayTicks));
@@ -73,7 +75,7 @@ public final class ServerTasks {
                                            final Runnable retired,
                                            final long delayTicks,
                                            final long periodTicks) {
-        if (entity == null || !entity.isValid()) {
+        if (entity == null) {
             return null;
         }
         return entity.getScheduler().runAtFixedRate(
@@ -97,6 +99,14 @@ public final class ServerTasks {
         if (task != null && !task.isCancelled()) {
             task.cancel();
         }
+    }
+
+    public static boolean isOwned(final Location location) {
+        return location == null || location.getWorld() == null || Bukkit.isOwnedByCurrentRegion(location);
+    }
+
+    public static boolean isOwned(final Entity entity) {
+        return entity == null || Bukkit.isOwnedByCurrentRegion(entity);
     }
 
     public static void cancelAll() {

@@ -2,8 +2,9 @@ package fr.nocsy.mcpets.data.sql;
 
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.config.GlobalConfig;
-import fr.nocsy.mcpets.utils.ServerTasks;
 
+import javax.sql.rowset.CachedRowSet;
+import javax.sql.rowset.RowSetProvider;
 import java.sql.*;
 import java.util.logging.Level;
 
@@ -15,6 +16,9 @@ public class MySQLDB {
     private String ip;
     private String port;
     private String db;
+
+    /** Guards all access to the single JDBC connection (not thread-safe). */
+    private final Object connectionLock = new Object();
 
     /** Timestamp of the last successful connection validation. */
     private long lastValidationTime = 0;
@@ -39,14 +43,16 @@ public class MySQLDB {
             MCPets.getInstance().getLogger().severe("DB : " + db);
             return false;
         }
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            String url = urlBuilder();
-            this.sqlCon = DriverManager.getConnection(url, this.user, this.pass);
-        }
-        catch (Exception e) {
-            MCPets.getInstance().getLogger().severe("Could not reach SQL database. Please configure your database parameters.");
-            return false;
+        synchronized (connectionLock) {
+            try {
+                Class.forName("com.mysql.cj.jdbc.Driver");
+                String url = urlBuilder();
+                this.sqlCon = DriverManager.getConnection(url, this.user, this.pass);
+            }
+            catch (Exception e) {
+                MCPets.getInstance().getLogger().severe("Could not reach SQL database. Please configure your database parameters.");
+                return false;
+            }
         }
         return true;
     }
@@ -54,11 +60,13 @@ public class MySQLDB {
     public void close() {
         if (!GlobalConfig.getInstance().isDatabaseSupport())
             return;
-        try {
-            this.sqlCon.close();
-        }
-        catch (Exception e) {
-            MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to close SQL connection", e);
+        synchronized (connectionLock) {
+            try {
+                this.sqlCon.close();
+            }
+            catch (Exception e) {
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to close SQL connection", e);
+            }
         }
     }
 
@@ -73,74 +81,87 @@ public class MySQLDB {
         }
         if (!this.sqlCon.isValid(1)) {
             this.sqlCon.close();
-            this.init();
+            this.initUnlocked();
         }
         lastValidationTime = now;
+    }
+
+    private void initUnlocked() throws SQLException {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("MySQL driver not found", e);
+        }
+        this.sqlCon = DriverManager.getConnection(urlBuilder(), this.user, this.pass);
+    }
+
+    /**
+     * Copy a live ResultSet into a detached CachedRowSet so the statement can
+     * be closed immediately without racing the caller.
+     */
+    private ResultSet cacheAndClose(final ResultSet rs, final Statement stat) throws SQLException {
+        try {
+            final CachedRowSet cached = RowSetProvider.newFactory().createCachedRowSet();
+            cached.populate(rs);
+            return cached;
+        } finally {
+            try {
+                rs.close();
+            } catch (SQLException ignored) {
+            }
+            try {
+                stat.close();
+            } catch (SQLException ignored) {
+            }
+        }
     }
 
     public ResultSet query(String s) {
         if (!GlobalConfig.getInstance().isDatabaseSupport())
             return null;
-        try {
-            ensureConnection();
-        } catch (SQLException e1) {
-            MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to validate SQL connection", e1);
-        }
-        ResultSet set = null;
-        try {
-            Statement stat = this.sqlCon.createStatement();
-            if (s.toLowerCase().startsWith("select")) {
-                set = stat.executeQuery(s);
-                closeStat(stat);
-            } else {
+        synchronized (connectionLock) {
+            try {
+                ensureConnection();
+            } catch (SQLException e1) {
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to validate SQL connection", e1);
+            }
+            try {
+                Statement stat = this.sqlCon.createStatement();
+                if (s.toLowerCase().startsWith("select")) {
+                    return cacheAndClose(stat.executeQuery(s), stat);
+                }
                 stat.executeUpdate(s);
                 stat.close();
+            } catch (SQLException e) {
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "SQL query failed: " + s, e);
             }
-
-        } catch (SQLException e) {
-            MCPets.getInstance().getLogger().log(Level.SEVERE, "SQL query failed: " + s, e);
+            return null;
         }
-        return set;
     }
 
     public ResultSet preparedQuery(String sql, Object... params) {
         if (!GlobalConfig.getInstance().isDatabaseSupport())
             return null;
-        try {
-            ensureConnection();
-        } catch (SQLException e1) {
-            MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to validate SQL connection", e1);
-        }
-        ResultSet set = null;
-        try {
-            PreparedStatement pstmt = this.sqlCon.prepareStatement(sql);
-            for (int i = 0; i < params.length; i++) {
-                pstmt.setObject(i + 1, params[i]);
+        synchronized (connectionLock) {
+            try {
+                ensureConnection();
+            } catch (SQLException e1) {
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to validate SQL connection", e1);
             }
-            if (sql.trim().toLowerCase().startsWith("select")) {
-                set = pstmt.executeQuery();
-                closeStat(pstmt);
-            } else {
+            try {
+                PreparedStatement pstmt = this.sqlCon.prepareStatement(sql);
+                for (int i = 0; i < params.length; i++) {
+                    pstmt.setObject(i + 1, params[i]);
+                }
+                if (sql.trim().toLowerCase().startsWith("select")) {
+                    return cacheAndClose(pstmt.executeQuery(), pstmt);
+                }
                 pstmt.executeUpdate();
                 pstmt.close();
-            }
-        } catch (SQLException e) {
-            MCPets.getInstance().getLogger().log(Level.SEVERE, "SQL prepared query failed: " + sql, e);
-        }
-        return set;
-    }
-
-    private void closeStat(final Statement stat) {
-        if (!GlobalConfig.getInstance().isDatabaseSupport())
-            return;
-
-        ServerTasks.runAsync(() -> {
-            try {
-                stat.close();
             } catch (SQLException e) {
-                MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to close SQL statement", e);
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "SQL prepared query failed: " + sql, e);
             }
-        });
-
+            return null;
+        }
     }
 }

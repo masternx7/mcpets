@@ -28,6 +28,7 @@ public class ArgumentRevoke extends AArgument {
             }
 
             PetInteractionMenuListener.revoke(p, pet);
+            return;
         }
         else if (args.length == 2 && sender.hasPermission(PPermission.ADMIN.getPermission())) {
 
