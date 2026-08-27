@@ -2,12 +2,13 @@ package fr.nocsy.mcpets.data.editor;
 
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorPageSelection {
 
-    private static HashMap<UUID, Integer> pageview = new HashMap<>();
+    private static Map<UUID, Integer> pageview = new ConcurrentHashMap<>();
 
     public static void set(Player p, int page) {
         pageview.put(p.getUniqueId(), page);

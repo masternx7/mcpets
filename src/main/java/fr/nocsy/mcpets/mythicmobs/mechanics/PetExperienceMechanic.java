@@ -1,10 +1,9 @@
 package fr.nocsy.mcpets.mythicmobs.mechanics;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -49,7 +48,7 @@ public class PetExperienceMechanic extends SkillMechanic implements ITargetedEnt
 
         final double expValue = experience.get(context);
 
-        Bukkit.getScheduler().runTask(MCPets.getInstance(), () -> pet.getPetStats().addExperience(expValue));
+        ServerTasks.runOn(entity, () -> pet.getPetStats().addExperience(expValue));
 
         return SkillResult.SUCCESS;
     }

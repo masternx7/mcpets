@@ -1,13 +1,12 @@
 package fr.nocsy.mcpets.mythicmobs.mechanics;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.utils.PetMath;
 import fr.nocsy.mcpets.data.livingpets.PetFoodBuff;
 import fr.nocsy.mcpets.data.livingpets.PetFoodType;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -65,13 +64,10 @@ public class PetBuffMechanic extends SkillMechanic implements ITargetedEntitySki
         PetFoodType buffType = PetFoodType.get(type);
         PetMath mathOperator = PetMath.get(operator);
 
-        Bukkit.getScheduler().runTask(
-                MCPets.getInstance(),
-                () -> {
+        ServerTasks.runOn(entity, () -> {
                     PetFoodBuff buff = new PetFoodBuff(pet, buffType, powerValue, mathOperator, durationValue);
                     buff.apply();
-                }
-        );
+                });
 
         return SkillResult.SUCCESS;
     }

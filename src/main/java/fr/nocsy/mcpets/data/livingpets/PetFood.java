@@ -1,10 +1,10 @@
 package fr.nocsy.mcpets.data.livingpets;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Getter;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -18,6 +18,7 @@ import fr.nocsy.mcpets.utils.PDCTag;
 import fr.nocsy.mcpets.utils.PetMath;
 import fr.nocsy.mcpets.data.config.Language;
 import fr.nocsy.mcpets.utils.debug.Debugger;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.data.config.FormatArg;
 import fr.nocsy.mcpets.data.config.ItemsListConfig;
 import fr.nocsy.mcpets.data.config.PetFoodConfig;
@@ -187,11 +188,11 @@ public class PetFood {
      * Register an owner in the waiting list so that they don't spam an item
      * and lose it unintentionally
      */
-    private final Set<UUID> waitingListApply = new HashSet<>();
+    private final Set<UUID> waitingListApply = ConcurrentHashMap.newKeySet();
     public void registerWaitingList(UUID owner, long delay) {
         if (!waitingListApply.add(owner)) return;
 
-        Bukkit.getScheduler().runTaskLater(MCPets.getInstance(), () -> waitingListApply.remove(owner), delay);
+        ServerTasks.runGlobalLater(() -> waitingListApply.remove(owner), delay);
     }
 
     private int getRemainingCooldownInSeconds(Pet pet) {

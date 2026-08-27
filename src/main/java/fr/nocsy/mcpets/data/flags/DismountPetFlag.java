@@ -1,16 +1,21 @@
 package fr.nocsy.mcpets.data.flags;
 
-import fr.nocsy.mcpets.MCPets;
-import fr.nocsy.mcpets.data.Pet;
-import fr.nocsy.mcpets.data.config.Language;
+import java.util.ArrayList;
+import java.util.UUID;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.UUID;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+
+import fr.nocsy.mcpets.MCPets;
+import fr.nocsy.mcpets.data.Pet;
+import fr.nocsy.mcpets.data.config.Language;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 public class DismountPetFlag extends AbstractFlag implements StoppableFlag {
 
-    private int task;
+    private ScheduledTask task;
 
     public static String NAME = "mcpets-dismount";
 
@@ -33,36 +38,36 @@ public class DismountPetFlag extends AbstractFlag implements StoppableFlag {
             MCPets.getLog().info("Starting flag " + getFlagName() + ".");
         }
 
-        task = Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(getMCPetsInstance(), () -> {
+        task = ServerTasks.runGlobalTimer(() -> {
             if (MCPets.getMythicMobs() == null)
                 return;
 
-            for (final UUID owner : Pet.getActivePets().keySet()) {
-                for (final Pet pet : Pet.getActivePetsForOwner(owner)) {
+            for (final UUID owner : new ArrayList<>(Pet.getActivePets().keySet())) {
+                final Player p = Bukkit.getPlayer(owner);
+                if (p == null)
+                    continue;
 
-                    if (!pet.isMountable())
-                        continue;
+                ServerTasks.runOn(p, () -> {
+                    for (final Pet pet : Pet.getActivePetsForOwner(owner)) {
+                        if (!pet.isMountable())
+                            continue;
 
-                    final Player p = Bukkit.getPlayer(owner);
-
-                    if (p != null) {
                         if (!pet.hasMount(p))
                             continue;
 
-                        final boolean hasToBeEjected = testState(p.getLocation());
-
-                        if (hasToBeEjected) {
+                        if (testState(p.getLocation())) {
                             pet.dismount(p);
                             Language.NOT_MOUNTABLE_HERE.sendMessage(p);
                         }
                     }
-                }
+                });
             }
-        }, 0L, 20L);
+        }, 20L, 20L);
     }
 
     @Override
     public void stop() {
-        Bukkit.getServer().getScheduler().cancelTask(task);
+        ServerTasks.cancel(task);
+        task = null;
     }
 }

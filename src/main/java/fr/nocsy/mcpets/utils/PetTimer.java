@@ -1,15 +1,16 @@
 package fr.nocsy.mcpets.utils;
 
-import fr.nocsy.mcpets.MCPets;
-import lombok.Getter;
-import org.bukkit.Bukkit;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import java.util.HashMap;
+import lombok.Getter;
+
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 
 public class PetTimer {
 
     @Getter
-    private static HashMap<PetTimer, Integer> runningTimers = new HashMap<>();
+    private static Map<PetTimer, ScheduledTask> runningTimers = new ConcurrentHashMap<>();
 
     @Getter
     private int cooldown;
@@ -17,7 +18,7 @@ public class PetTimer {
     private int remainingTime;
     private long frequency;
 
-    private int task;
+    private ScheduledTask task;
 
     private final Runnable endingRunnable;
 
@@ -37,7 +38,7 @@ public class PetTimer {
         if (isRunning())
             stop(null);
         remainingTime = cooldown;
-        task = Bukkit.getScheduler().scheduleSyncRepeatingTask(MCPets.getInstance(), () -> {
+        task = ServerTasks.runGlobalTimer(() -> {
             if (cooldown != Integer.MAX_VALUE)
                 remainingTime--;
             if (remainingTime <= 0)
@@ -45,12 +46,15 @@ public class PetTimer {
 
             if (runnable != null)
                 runnable.run();
-        }, 0L, frequency);
-        runningTimers.put(this, task);
+        }, 1L, frequency);
+        if (task != null) {
+            runningTimers.put(this, task);
+        }
     }
 
     public void stop(Runnable runnable) {
-        Bukkit.getScheduler().cancelTask(task);
+        ServerTasks.cancel(task);
+        task = null;
         runningTimers.remove(this);
         remainingTime = 0;
         if (runnable != null)

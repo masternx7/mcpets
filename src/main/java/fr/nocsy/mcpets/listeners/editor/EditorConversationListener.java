@@ -1,41 +1,32 @@
 package fr.nocsy.mcpets.listeners.editor;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.config.ItemsListConfig;
 import fr.nocsy.mcpets.data.editor.*;
 import fr.nocsy.mcpets.data.livingpets.PetFoodType;
 import fr.nocsy.mcpets.utils.PetAnnouncement;
 import fr.nocsy.mcpets.utils.PetMath;
-import org.bukkit.Bukkit;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class EditorConversationListener implements Listener {
 
     public void syncOpenEditor(Player p, EditorState newState) {
-        final UUID uuid = p.getUniqueId();
-        // Run it sync otherwise it will not open
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player == null)
-                    return;
-                Editor editor = Editor.getEditor(player);
-                if (newState != null)
-                    editor.setState(newState);
-                editor.openEditor();
-            }
-        }.runTask(MCPets.getInstance());
+        // Hop to the player's region otherwise the inventory will not open
+        ServerTasks.runOn(p, () -> {
+            if (!p.isOnline())
+                return;
+            Editor editor = Editor.getEditor(p);
+            if (newState != null)
+                editor.setState(newState);
+            editor.openEditor();
+        });
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

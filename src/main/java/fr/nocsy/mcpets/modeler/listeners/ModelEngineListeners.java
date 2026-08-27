@@ -1,11 +1,9 @@
 package fr.nocsy.mcpets.modeler.listeners;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.PPermission;
 import fr.nocsy.mcpets.utils.debug.Debugger;
@@ -14,6 +12,7 @@ import fr.nocsy.mcpets.data.PetDespawnReason;
 import fr.nocsy.mcpets.data.flags.FlagsManager;
 import fr.nocsy.mcpets.data.config.GlobalConfig;
 import fr.nocsy.mcpets.data.flags.DismountPetFlag;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import com.ticxo.modelengine.api.model.ActiveModel;
 import com.ticxo.modelengine.api.entity.BukkitEntity;
@@ -34,7 +33,7 @@ public class ModelEngineListeners implements Listener {
 
         Entity entity = bukkitEntity.getOriginal();
 
-        Bukkit.getScheduler().runTask(MCPets.getInstance(), () -> {
+        ServerTasks.runOn(entity, () -> {
             Pet pet = Pet.getFromEntity(entity);
             if (pet != null && pet.isDespawnOnDismount()) {
                 pet.despawn(PetDespawnReason.DISMOUNT);
@@ -44,8 +43,6 @@ public class ModelEngineListeners implements Listener {
 
     @EventHandler
     public void mountingPet(ModelMountEvent e) {
-        if (!Bukkit.isPrimaryThread()) return;
-
         if (e.getPassenger() == null) return;
 
         ActiveModel vehicle = e.getVehicle();

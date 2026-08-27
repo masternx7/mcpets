@@ -3,6 +3,7 @@ package fr.nocsy.mcpets.data.livingpets;
 import java.util.List;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import lombok.Getter;
@@ -11,10 +12,10 @@ import lombok.Setter;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.utils.Utils;
 import fr.nocsy.mcpets.utils.PetTimer;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.data.sql.Databases;
 import fr.nocsy.mcpets.data.sql.PlayerData;
 import fr.nocsy.mcpets.utils.debug.Debugger;
@@ -101,8 +102,10 @@ public class PetStats {
             if (GlobalConfig.getInstance().isAutoRespawn()) {
                 Player p = Bukkit.getPlayer(pet.getOwner());
                 if (p != null && Pet.getActivePets().get(pet.getOwner()) == null) {
-                    pet.spawn(p.getLocation(), true);
-                    Debugger.send("§aPet §6" + pet.getId() + "§a was autorespawned after death.");
+                    ServerTasks.runOn(p, () -> {
+                        pet.spawn(p.getLocation(), true);
+                        Debugger.send("§aPet §6" + pet.getId() + "§a was autorespawned after death.");
+                    });
                 } else {
                     Debugger.send("§cPet §6" + pet.getId() + "§c was supposed to autorespawn, but the player already has a spawned pet with him, or is disconnected.");
                 }
@@ -136,9 +139,12 @@ public class PetStats {
         regenerationTimer = new PetTimer(Integer.MAX_VALUE, 20, null);
         regenerationTimer.launch(() -> {
             if (pet.isStillHere()) {
-                double value = Math.min(currentHealth + currentLevel.getRegeneration(), currentLevel.getMaxHealth());
-                pet.getActiveMob().getEntity().setHealth(value);
-                updateHealth();
+                org.bukkit.entity.Entity entity = pet.getActiveMob().getEntity().getBukkitEntity();
+                ServerTasks.runOn(entity, () -> {
+                    double value = Math.min(currentHealth + currentLevel.getRegeneration(), currentLevel.getMaxHealth());
+                    pet.getActiveMob().getEntity().setHealth(value);
+                    updateHealth();
+                });
             } else {
                 regenerationTimer.stop(null);
             }
@@ -384,7 +390,7 @@ public class PetStats {
 
     //------------ Static code -------------//
 
-    private static List<PetStats> petStatsList = new ArrayList<>();
+    private static List<PetStats> petStatsList = new CopyOnWriteArrayList<>();
 
     public static List<PetStats> getPetStats(UUID owner) {
         return petStatsList.stream()
@@ -441,7 +447,7 @@ public class PetStats {
         // Runs Async if it's a SQL, sync if not coz YAML doesn't support Async
         if (GlobalConfig.getInstance().isDatabaseSupport()) {
             // TODO: For now, we make the AutoSave only saving the connected players for MySQL users
-            Bukkit.getScheduler().runTaskTimerAsynchronously(MCPets.getInstance(), () -> {
+            ServerTasks.runAsyncTimer(() -> {
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     Databases.savePlayerData(p.getUniqueId());
                 }
@@ -449,7 +455,7 @@ public class PetStats {
             return;
         }
 
-        Bukkit.getScheduler().runTaskTimer(MCPets.getInstance(), () ->
+        ServerTasks.runGlobalTimer(() ->
                 new ArrayList<>(petStatsList).forEach(PetStats::save), delay, delay);
     }
 

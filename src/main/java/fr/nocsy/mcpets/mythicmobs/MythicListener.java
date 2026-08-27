@@ -1,10 +1,10 @@
 package fr.nocsy.mcpets.mythicmobs;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 
 import fr.nocsy.mcpets.MCPets;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.events.MythicReloadedEvent;
 import io.lumine.mythic.core.skills.CustomComponentRegistry;
@@ -18,7 +18,7 @@ public class MythicListener implements Listener {
 
     @EventHandler
     public void onMythicReload(MythicReloadedEvent e) {
-        Bukkit.getScheduler().runTask(MCPets.getInstance(), () -> MCPets.getComponentRegistry()
+        ServerTasks.runGlobal(() -> MCPets.getComponentRegistry()
             .registerCustomComponent(CustomComponentRegistry.MythicComponentType.PLACEHOLDER, PLACEHOLDER_PACKAGE)
             .registerCustomComponent(CustomComponentRegistry.MythicComponentType.CONDITION, CONDITION_PACKAGE)
             .registerCustomComponent(CustomComponentRegistry.MythicComponentType.TARGETER, TARGETER_PACKAGE)

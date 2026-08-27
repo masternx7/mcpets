@@ -1,6 +1,5 @@
 package fr.nocsy.mcpets.listeners;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.PetDespawnReason;
 import fr.nocsy.mcpets.data.config.FormatArg;
@@ -11,6 +10,7 @@ import fr.nocsy.mcpets.data.livingpets.PetFoodType;
 import fr.nocsy.mcpets.data.livingpets.PetStats;
 import fr.nocsy.mcpets.events.*;
 import fr.nocsy.mcpets.utils.Utils;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.utils.debug.Debugger;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
@@ -25,7 +25,6 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
 public class LivingPetsListener implements Listener {
 
@@ -192,12 +191,9 @@ public class LivingPetsListener implements Listener {
 
         PetStats stats = pet.getPetStats();
         // Must run ASync otherwise it's not updating
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                stats.updateHealth();
-            }
-        }.runTaskLater(MCPets.getInstance(), 1L);
+        if (pet.isStillHere()) {
+            ServerTasks.runOnLater(pet.getActiveMob().getEntity().getBukkitEntity(), stats::updateHealth, 1L);
+        }
     }
 
     @EventHandler

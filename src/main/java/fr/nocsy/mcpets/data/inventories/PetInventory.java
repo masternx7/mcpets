@@ -8,23 +8,24 @@ import fr.nocsy.mcpets.data.config.Language;
 import fr.nocsy.mcpets.data.sql.PlayerData;
 import fr.nocsy.mcpets.data.sql.PlayerDataNoDatabase;
 import fr.nocsy.mcpets.utils.BukkitSerialization;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import lombok.Getter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PetInventory {
 
     @Getter
-    private static HashMap<UUID, HashMap<String, PetInventory>> petInventories = new HashMap<>();
+    private static Map<UUID, Map<String, PetInventory>> petInventories = new ConcurrentHashMap<>();
 
     @Getter
     private Inventory inventory;
@@ -55,16 +56,7 @@ public class PetInventory {
             }
         }
 
-        HashMap<String, PetInventory> builtIn = petInventories.get(pet.getOwner());
-        if (builtIn == null) {
-            HashMap<String, PetInventory> map = new HashMap<>();
-            map.put(pet.getId(), this);
-            petInventories.put(pet.getOwner(), map);
-        }
-        else {
-            builtIn.put(pet.getId(), this);
-            petInventories.put(pet.getOwner(), builtIn);
-        }
+        petInventories.computeIfAbsent(pet.getOwner(), k -> new ConcurrentHashMap<>()).put(pet.getId(), this);
     }
 
     public static void removePlayer(UUID owner) {
@@ -88,7 +80,7 @@ public class PetInventory {
             return null;
         if (pet.getInventorySize() <= 0)
             return null;
-        HashMap<String, PetInventory> registeredMap = petInventories.get(pet.getOwner());
+        Map<String, PetInventory> registeredMap = petInventories.get(pet.getOwner());
         if (registeredMap != null
                 && registeredMap.get(pet.getId()) != null
                 && registeredMap.get(pet.getId()).getInventory().getSize() == pet.getInventorySize()) {
@@ -148,18 +140,12 @@ public class PetInventory {
      * and add the tracing metadata
      */
     public void open(Player p) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                p.openInventory(inventory);
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        p.setMetadata("MCPets;petInventory", new FixedMetadataValue(MCPets.getInstance(), pet.getId()));
-                    }
-                }.runTaskLater(MCPets.getInstance(), 2L);
-            }
-        }.runTaskLater(MCPets.getInstance(), 2L);
+        ServerTasks.runOnLater(p, () -> {
+            p.openInventory(inventory);
+            ServerTasks.runOnLater(p, () -> {
+                p.setMetadata("MCPets;petInventory", new FixedMetadataValue(MCPets.getInstance(), pet.getId()));
+            }, 2L);
+        }, 2L);
     }
 
     /**
@@ -168,15 +154,12 @@ public class PetInventory {
      */
     public void close(Player p) {
         p.setMetadata("MCPets;petInventory", new FixedMetadataValue(MCPets.getInstance(), null));
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!GlobalConfig.getInstance().isDatabaseSupport())
-                    PlayerDataNoDatabase.get(p.getUniqueId()).save();
-                else
-                    PlayerData.saveDB();
-            }
-        }.runTaskAsynchronously(MCPets.getInstance());
+        ServerTasks.runAsync(() -> {
+            if (!GlobalConfig.getInstance().isDatabaseSupport())
+                PlayerDataNoDatabase.get(p.getUniqueId()).save();
+            else
+                PlayerData.saveDB();
+        });
     }
 
     /**
@@ -191,7 +174,7 @@ public class PetInventory {
             {
                 String petId = (String)p.getMetadata("MCPets;petInventory").getFirst().value();
                 UUID owner = p.getUniqueId();
-                HashMap<String, PetInventory> map = petInventories.get(owner);
+                Map<String, PetInventory> map = petInventories.get(owner);
                 if (map != null) {
                     return map.get(petId);
                 }

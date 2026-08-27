@@ -2,7 +2,7 @@ package fr.nocsy.mcpets.data.sql;
 
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.config.GlobalConfig;
-import org.bukkit.scheduler.BukkitRunnable;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import java.sql.*;
 import java.util.logging.Level;
@@ -134,16 +134,13 @@ public class MySQLDB {
         if (!GlobalConfig.getInstance().isDatabaseSupport())
             return;
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try {
-                    stat.close();
-                } catch (SQLException e) {
-                    MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to close SQL statement", e);
-                }
+        ServerTasks.runAsync(() -> {
+            try {
+                stat.close();
+            } catch (SQLException e) {
+                MCPets.getInstance().getLogger().log(Level.SEVERE, "Failed to close SQL statement", e);
             }
-        }.runTaskLater(MCPets.getInstance(), 5L);
+        });
 
     }
 }

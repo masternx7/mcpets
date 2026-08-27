@@ -1,12 +1,12 @@
 package fr.nocsy.mcpets.mythicmobs.mechanics;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.PetDespawnReason;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -53,9 +53,8 @@ public class SetPetMechanic extends SkillMechanic implements ITargetedEntitySkil
             return SkillResult.CONDITION_FAILED;
         }
 
-        Bukkit.getScheduler().runTask(
-                MCPets.getInstance(),
-                () -> MCPets.getMythicMobs()
+        ServerTasks.runOn(entity, () ->
+                MCPets.getMythicMobs()
                         .getMobManager()
                         .getActiveMob(data.getCaster().getEntity().getUniqueId())
                         .ifPresent(activeMob ->

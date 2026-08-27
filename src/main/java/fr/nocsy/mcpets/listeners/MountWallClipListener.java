@@ -1,16 +1,14 @@
 package fr.nocsy.mcpets.listeners;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.config.Language;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.utils.Utils;
 import org.bukkit.Location;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityMountEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * Detects players ending up clipped inside a solid block right after mounting
@@ -35,18 +33,15 @@ public class MountWallClipListener implements Listener {
         if (!Utils.isLocationClearForMount(safeLoc))
             return;
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline() || player.isDead())
-                    return;
-                if (Utils.isLocationClearForMount(player.getLocation()))
-                    return;
+        ServerTasks.runOnLater(player, () -> {
+            if (!player.isOnline() || player.isDead())
+                return;
+            if (Utils.isLocationClearForMount(player.getLocation()))
+                return;
 
-                pet.dismount(player);
-                player.teleport(safeLoc);
-                Language.NOT_MOUNTABLE_HERE.sendMessage(player);
-            }
-        }.runTaskLater(MCPets.getInstance(), 2L);
+            pet.dismount(player);
+            player.teleportAsync(safeLoc);
+            Language.NOT_MOUNTABLE_HERE.sendMessage(player);
+        }, 2L);
     }
 }

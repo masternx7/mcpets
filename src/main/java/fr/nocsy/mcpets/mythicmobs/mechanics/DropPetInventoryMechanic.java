@@ -1,6 +1,5 @@
 package fr.nocsy.mcpets.mythicmobs.mechanics;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -9,6 +8,7 @@ import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.inventories.PetInventory;
 import fr.nocsy.mcpets.data.inventories.PetInventoryHolder;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -42,7 +42,7 @@ public class DropPetInventoryMechanic extends SkillMechanic implements ITargeted
                 Inventory inv = petInventory.getInventory();
                 Location loc = BukkitAdapter.adapt(pet.getActiveMob().getLocation());
 
-                Bukkit.getScheduler().runTask(MCPets.getInstance(), () -> {
+                ServerTasks.runAt(loc, () -> {
                     for (ItemStack item : inv.getContents()) {
                         if (item == null) continue;
                         loc.getWorld().dropItemNaturally(loc, item);

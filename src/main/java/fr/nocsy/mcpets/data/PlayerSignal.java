@@ -4,12 +4,13 @@ import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerSignal {
 
-    private static final HashMap<UUID, SignalWrapper> orderMap = new HashMap<>();
+    private static final Map<UUID, SignalWrapper> orderMap = new ConcurrentHashMap<>();
 
     /**
      * Set the active signal for the player

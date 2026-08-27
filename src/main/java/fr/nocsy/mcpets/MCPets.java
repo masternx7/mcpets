@@ -47,6 +47,7 @@ import fr.nocsy.mcpets.data.config.BlacklistConfig;
 import fr.nocsy.mcpets.data.config.ItemsListConfig;
 import fr.nocsy.mcpets.velocity.VelocitySyncManager;
 import fr.nocsy.mcpets.data.editor.EditorConversation;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import static fr.nocsy.mcpets.mythicmobs.MythicListener.*;
 
@@ -83,14 +84,14 @@ public class MCPets extends JavaPlugin {
         PetConfig.loadPets(AbstractConfig.getPath() + "Pets/", true);
         CategoryConfig.load(AbstractConfig.getPath() + "Categories/", true);
 
-        // Run DB initialization asynchronously to avoid freezing the main thread.
+        // Run DB initialization asynchronously to avoid freezing the region thread.
         // Tasks that depend on isDatabaseSupport() being correctly set (autosave scheduler,
         // Velocity init) must run AFTER this completes — see scheduleDbDependentTasks().
-        Bukkit.getScheduler().runTaskAsynchronously(instance, () -> {
+        ServerTasks.runAsync(() -> {
             Databases.init();
             PlayerData.initAll();
-            // Hop back to main thread for tasks that must schedule on the main scheduler
-            Bukkit.getScheduler().runTask(instance, MCPets::scheduleDbDependentTasks);
+            // Hop back to the global region for tasks that must schedule on the region scheduler
+            ServerTasks.runGlobal(MCPets::scheduleDbDependentTasks);
         });
 
         for (final EditorItems item : EditorItems.values()) {
@@ -157,7 +158,7 @@ public class MCPets extends JavaPlugin {
         EventListener.init(this);
         modeler.registerListeners(this);
 
-        Bukkit.getScheduler().runTask(this, () -> {
+        ServerTasks.runGlobal(() -> {
             loadConfigs();
             // PetStats.saveStats() and VelocitySyncManager.init() are scheduled inside
             // loadConfigs() once async DB init completes — see scheduleDbDependentTasks()
@@ -226,6 +227,7 @@ public class MCPets extends JavaPlugin {
 
         FlagsManager.stopFlags();
         VelocitySyncManager.shutdown();
+        ServerTasks.cancelAll();
 
         // Wait for DB saves to complete before cleaning up
         try {

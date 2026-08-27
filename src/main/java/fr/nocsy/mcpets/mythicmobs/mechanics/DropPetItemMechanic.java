@@ -2,12 +2,11 @@ package fr.nocsy.mcpets.mythicmobs.mechanics;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.config.ItemsListConfig;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -43,13 +42,10 @@ public class DropPetItemMechanic extends SkillMechanic implements ITargetedEntit
         ItemStack item = ItemsListConfig.getInstance().getItemStack(petItemId);
 
         if (item != null && ThreadLocalRandom.current().nextFloat() <= percentage) {
-            Bukkit.getScheduler().runTask(
-                    MCPets.getInstance(),
-                    () -> entity.getWorld().dropItemNaturally(
+            ServerTasks.runOn(entity, () -> entity.getWorld().dropItemNaturally(
                             entity.getLocation(),
                             item
-                    )
-            );
+                    ));
         }
 
         return SkillResult.SUCCESS;

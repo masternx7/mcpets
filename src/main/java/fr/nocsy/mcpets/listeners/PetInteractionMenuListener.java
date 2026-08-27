@@ -14,16 +14,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
-import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.data.Items;
 import fr.nocsy.mcpets.PPermission;
 import fr.nocsy.mcpets.utils.Utils;
 import fr.nocsy.mcpets.utils.PDCTag;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.data.PetSkin;
 import fr.nocsy.mcpets.data.config.Language;
 import fr.nocsy.mcpets.data.PetDespawnReason;
@@ -31,6 +29,7 @@ import fr.nocsy.mcpets.data.config.FormatArg;
 import fr.nocsy.mcpets.data.inventories.PetMenu;
 import fr.nocsy.mcpets.data.inventories.PetInventory;
 import fr.nocsy.mcpets.data.inventories.PetInventoryHolder;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class PetInteractionMenuListener implements Listener {
 
@@ -59,12 +58,9 @@ public class PetInteractionMenuListener implements Listener {
     }
 
     public static void skins(final Player p, final Pet pet) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                PetSkin.openInventory(p, pet);
-            }
-        }.runTaskLater(MCPets.getInstance(), 2L);
+        ServerTasks.runOnLater(p, () -> {
+            PetSkin.openInventory(p, pet);
+        }, 2L);
     }
 
     public static void revoke(final Player p, @NotNull final Pet pet) {

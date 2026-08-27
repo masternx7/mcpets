@@ -3,12 +3,13 @@ package fr.nocsy.mcpets.data.editor;
 import lombok.Getter;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorConversation {
 
-    private static HashMap<UUID, EditorConversation> conversations = new HashMap<>();
+    private static Map<UUID, EditorConversation> conversations = new ConcurrentHashMap<>();
 
     @Getter
     private Player player;

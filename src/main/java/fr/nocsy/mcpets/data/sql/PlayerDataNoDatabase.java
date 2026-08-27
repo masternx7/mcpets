@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -74,7 +74,7 @@ public class PlayerDataNoDatabase extends AbstractConfig {
         ArrayList<String> serializedInventoriesMap = new ArrayList<>();
         mapOfRegisteredInventories.clear();
         if (PetInventory.getPetInventories().containsKey(uuid)) {
-            HashMap<String, PetInventory> inventories = PetInventory.getPetInventories().get(uuid);
+            Map<String, PetInventory> inventories = PetInventory.getPetInventories().get(uuid);
             for (String petId : inventories.keySet()) {
                 mapOfRegisteredInventories.put(petId, inventories.get(petId).serialize());
                 String seriaInv = mapOfRegisteredInventories.get(petId);

@@ -2,10 +2,9 @@ package fr.nocsy.mcpets.mythicmobs.mechanics;
 
 import java.util.Optional;
 
-import org.bukkit.Bukkit;
-
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
+import fr.nocsy.mcpets.utils.ServerTasks;
 
 import io.lumine.mythic.core.mobs.ActiveMob;
 import io.lumine.mythic.api.skills.SkillResult;
@@ -49,17 +48,14 @@ public class SetLivingPetMechanic extends SkillMechanic implements ITargetedEnti
             return SkillResult.CONDITION_FAILED;
         }
 
-        Bukkit.getScheduler().runTask(
-                MCPets.getInstance(),
-                () -> {
+        ServerTasks.runOn(entity.getBukkitEntity(), () -> {
                     Optional<ActiveMob> activeMob = MCPets.getMythicMobs().getMobManager().getActiveMob(entity.getUniqueId());
 
                     activeMob.ifPresent(pet::setActiveMob);
 
                     pet.setDefaultTamingValue(tamingProgress);
                     pet.setFollowOwner(followOnTame);
-                }
-        );
+                });
 
         return SkillResult.SUCCESS;
     }

@@ -2,6 +2,7 @@ package fr.nocsy.mcpets.data;
 
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.utils.PDCTag;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.data.config.FormatArg;
 import fr.nocsy.mcpets.data.config.Language;
 import fr.nocsy.mcpets.data.inventories.PetInventoryHolder;
@@ -13,7 +14,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -205,20 +205,15 @@ public class PetSkin {
 
         instancePet.despawn(PetDespawnReason.SKIN);
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                instancePet.spawn(loc, false);
-                if (hasRider) {
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            instancePet.setMount(Bukkit.getPlayer(instancePet.getOwner()));
-                        }
-                    }.runTaskLater(MCPets.getInstance(), 2L);
+        ServerTasks.runAtLater(loc, () -> {
+            instancePet.spawn(loc, false);
+            if (hasRider) {
+                final Player owner = Bukkit.getPlayer(instancePet.getOwner());
+                if (owner != null) {
+                    ServerTasks.runOnLater(owner, () -> instancePet.setMount(owner), 2L);
                 }
             }
-        }.runTaskLater(MCPets.getInstance(), 2L);
+        }, 2L);
         return true;
     }
 }

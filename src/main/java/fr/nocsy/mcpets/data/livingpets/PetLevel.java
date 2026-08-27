@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import fr.nocsy.mcpets.MCPets;
 import fr.nocsy.mcpets.data.Pet;
 import fr.nocsy.mcpets.utils.Utils;
+import fr.nocsy.mcpets.utils.ServerTasks;
 import fr.nocsy.mcpets.data.sql.PlayerData;
 import fr.nocsy.mcpets.utils.debug.Debugger;
 import fr.nocsy.mcpets.data.config.Language;
@@ -258,27 +259,28 @@ public class PetLevel {
             permFuture = permFuture.thenCompose(v -> Utils.removePermissionAsync(player, pet.getPermission()));
         }
 
-        // Once permissions are applied, spawn the evolution on the main thread
-        permFuture.thenRun(() -> Bukkit.getScheduler().runTaskLater(MCPets.getInstance(), () -> {
-            // Make sure the owner is still here
-            final Player o = Bukkit.getPlayer(player);
-            if (o != null) {
-                final Pet activePet = Pet.fromOwner(player);
-                final Location loc = activePet != null && activePet.isStillHere() ?
-                                activePet.getActiveMob().getEntity().getBukkitEntity().getLocation() :
-                                o.getLocation();
+        // Once permissions are applied, spawn the evolution on the owner's region
+        permFuture.thenRun(() -> {
+            final Player ownerPlayer = Bukkit.getPlayer(player);
+            if (ownerPlayer == null) return;
+            ServerTasks.runOnLater(ownerPlayer, () -> {
+                final Player o = Bukkit.getPlayer(player);
+                if (o == null) return;
 
-                // Despawn the previous pet
+                final Pet activePet = Pet.fromOwner(player);
+                Location loc = o.getLocation();
                 if (activePet != null && activePet.isStillHere()) {
+                    final org.bukkit.entity.Entity petEntity = activePet.getActiveMob().getEntity().getBukkitEntity();
+                    if (Bukkit.isOwnedByCurrentRegion(petEntity)) {
+                        loc = petEntity.getLocation();
+                    }
                     activePet.despawn(PetDespawnReason.EVOLUTION);
                 }
 
-                // Spawn the evolution
                 petEvolution.spawn(loc, false);
-                // Re-enable permission checking now that LuckPerms has propagated
                 petEvolution.setCheckPermission(true);
-            }
-        }, delayBeforeEvolution));
+            }, delayBeforeEvolution);
+        });
 
         return true;
     }

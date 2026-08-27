@@ -5,11 +5,13 @@ import lombok.Setter;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class EditorEditing {
 
-    private static HashMap<UUID, EditorEditing> editing = new HashMap<>();
+    private static Map<UUID, EditorEditing> editing = new ConcurrentHashMap<>();
 
     @Getter
     @Setter
